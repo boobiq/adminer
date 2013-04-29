@@ -284,7 +284,7 @@ function columnMouse(el, className) {
 /** Fill column in search field
  * @param string
  */
-function selectSearch(name) {
+function selectSearch(name, op) {
 	var el = document.getElementById('fieldset-search');
 	el.className = '';
 	var divs = el.getElementsByTagName('div');
@@ -298,6 +298,7 @@ function selectSearch(name) {
 		div.firstChild.value = name;
 		div.firstChild.onchange();
 	}
+	div.children[1].value = op || '=';
 	div.lastChild.focus();
 }
 

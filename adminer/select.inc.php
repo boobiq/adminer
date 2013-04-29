@@ -299,6 +299,7 @@ if (!$columns) {
 						echo "<a href='" . h($href . $desc) . "' title='" . lang('descending') . "' class='text'> ↓</a>";
 						if (!$val["fun"]) {
 							echo '<a href="#fieldset-search" onclick="selectSearch(\'' . h(js_escape($key)) . '\'); return false;" title="' . lang('Search') . '" class="text jsonly"> =</a>';
+							echo '<a href="#fieldset-search" onclick="selectSearch(\'' . h(js_escape($key)) . '\', \'LIKE %%\'); return false;" title="' . lang('Like') . '" class="text jsonly"> %</a>';
 						}
 						echo "</span>";
 					}
