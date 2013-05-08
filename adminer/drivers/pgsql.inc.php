@@ -555,7 +555,7 @@ AND typelem = 0"
 	
 	function set_schema($schema) {
 		global $connection, $types, $structured_types;
-		$return = $connection->query("SET search_path TO " . idf_escape($schema));
+		$return = $connection->query("SET search_path TO " . idf_escape($schema) . ", public");
 		foreach (types() as $type) { //! get types from current_schemas('t')
 			if (!isset($types[$type])) {
 				$types[$type] = 0;
