@@ -45,7 +45,11 @@ if ($_GET["val"] && is_ajax()) {
 }
 
 if ($_POST && !$error) {
-	$where_check = "(" . implode(") OR (", array_map('where_check', (array) $_POST["check"])) . ")";
+	$where_check = $where;
+	if (is_array($_POST["check"])) {
+		$where_check[] = "((" . implode(") OR (", array_map('where_check', $_POST["check"])) . "))";
+	}
+	$where_check = ($where_check ? "\nWHERE " . implode(" AND ", $where_check) : "");
 	$primary = $unselected = null;
 	foreach ($indexes as $index) {
 		if ($index["type"] == "PRIMARY") {
@@ -59,16 +63,13 @@ if ($_POST && !$error) {
 			unset($unselected[$key]);
 		}
 	}
+	
 	if ($_POST["export"]) {
 		cookie("adminer_import", "output=" . urlencode($_POST["output"]) . "&format=" . urlencode($_POST["format"]));
 		dump_headers($TABLE);
 		$adminer->dumpTable($TABLE, "");
 		if (!is_array($_POST["check"]) || $unselected === array()) {
-			$where2 = $where;
-			if (is_array($_POST["check"])) {
-				$where2[] = "($where_check)";
-			}
-			$query = "SELECT $from" . ($where2 ? "\nWHERE " . implode(" AND ", $where2) : "") . $group_by;
+			$query = "SELECT $from$where_check$group_by";
 		} else {
 			$union = array();
 			foreach ($_POST["check"] as $val) {
@@ -80,6 +81,7 @@ if ($_POST && !$error) {
 		$adminer->dumpData($TABLE, "table", $query);
 		exit;
 	}
+	
 	if (!$adminer->selectEmailProcess($where, $foreign_keys)) {
 		if ($_POST["save"] || $_POST["delete"]) { // edit
 			$result = true;
@@ -110,12 +112,12 @@ if ($_POST && !$error) {
 					$query = "INTO $query";
 				}
 				if ($_POST["all"] || ($unselected === array() && $_POST["check"]) || $is_group) {
-					$result = queries("$command $query" . ($_POST["all"] ? ($where ? "\nWHERE " . implode(" AND ", $where) : "") : "\nWHERE $where_check"));
+					$result = queries("$command $query$where_check");
 					$affected = $connection->affected_rows;
 				} else {
 					foreach ((array) $_POST["check"] as $val) {
 						// where is not unique so OR can't be used
-						$result = queries($command . limit1($query, "\nWHERE " . where_check($val, $fields)));
+						$result = queries($command . limit1($query, "\nWHERE " . ($where ? implode(" AND ", $where) . " AND " : "") . where_check($val, $fields)));
 						if (!$result) {
 							break;
 						}
@@ -132,6 +134,7 @@ if ($_POST && !$error) {
 			}
 			queries_redirect(remove_from_uri($_POST["all"] && $_POST["delete"] ? "page" : ""), $message, $result);
 			//! display edit page in case of an error
+			
 		} elseif (!$_POST["import"]) { // modify
 			if (!$_POST["val"]) {
 				$error = lang('Ctrl+click on a value to modify it.');
@@ -154,6 +157,7 @@ if ($_POST && !$error) {
 				}
 				queries_redirect(remove_from_uri(), lang('%d item(s) have been affected.', $affected), $result);
 			}
+			
 		} elseif (is_string($file = get_file("csv_file", true))) {
 			//! character set
 			cookie("adminer_import", "output=" . urlencode($adminer_import["output"]) . "&format=" . urlencode($_POST["separator"]));
@@ -185,6 +189,7 @@ if ($_POST && !$error) {
 			}
 			queries_redirect(remove_from_uri("page"), lang('%d row(s) have been imported.', $affected), $result);
 			queries("ROLLBACK"); // after queries_redirect() to not overwrite error
+			
 		} else {
 			$error = upload_error($file);
 		}
@@ -307,6 +312,7 @@ if (!$columns) {
 					next($select);
 				}
 			}
+			
 			$lengths = array();
 			if ($_GET["modify"]) {
 				foreach ($rows as $row) {
@@ -315,15 +321,26 @@ if (!$columns) {
 					}
 				}
 			}
+			
 			echo ($backward_keys ? "<th>" . lang('Relations') : "") . "</thead>\n";
+			
 			if (is_ajax()) {
 				if ($limit % 2 == 1 && $page % 2 == 1) {
 					odd();
 				}
 				ob_end_clean();
 			}
+			
 			foreach ($adminer->rowDescriptions($rows, $foreign_keys) as $n => $row) {
 				$unique_array = unique_array($rows[$n], $indexes);
+				if (!$unique_array) {
+					$unique_array = array();
+					foreach ($rows[$n] as $key => $val) {
+						if (!preg_match('~^(COUNT\\((\\*|(DISTINCT )?`(?:[^`]|``)+`)\\)|(AVG|GROUP_CONCAT|MAX|MIN|SUM)\\(`(?:[^`]|``)+`\\))$~', $key)) { //! columns looking like functions
+							$unique_array[$key] = $val;
+						}
+					}
+				}
 				$unique_idf = "";
 				foreach ($unique_array as $key => $val) {
 					if (strlen($val) > 64) {
@@ -333,12 +350,14 @@ if (!$columns) {
 					$unique_idf .= "&" . ($val !== null ? urlencode("where[" . bracket_escape($key) . "]") . "=" . urlencode($val) : "null%5B%5D=" . urlencode($key));
 				}
 				echo "<tr" . odd() . ">" . (!$group && $select ? "" : "<td>" . checkbox("check[]", substr($unique_idf, 1), in_array(substr($unique_idf, 1), (array) $_POST["check"]), "", "this.form['all'].checked = false; formUncheck('all-page');") . ($is_group || information_schema(DB) ? "" : " <a href='" . h(ME . "edit=" . urlencode($TABLE) . $unique_idf) . "'>" . lang('edit') . "</a>"));
+				
 				foreach ($row as $key => $val) {
 					if (isset($names[$key])) {
 						$field = $fields[$key];
 						if ($val != "" && (!isset($email_fields[$key]) || $email_fields[$key] != "")) {
 							$email_fields[$key] = (is_mail($val) ? $names[$key] : ""); //! filled e-mails can be contained on other pages
 						}
+						
 						$link = "";
 						$val = $adminer->editVal($val, $field);
 						if ($val !== null) {
@@ -367,6 +386,7 @@ if (!$columns) {
 									}
 								}
 							}
+							
 							if ($key == "COUNT(*)") { //! columns looking like functions
 								$link = ME . "select=" . urlencode($TABLE);
 								$i = 0;
@@ -379,7 +399,9 @@ if (!$columns) {
 									$link .= where_link($i++, $k, $v);
 								}
 							}
+							
 						}
+						
 						if (!$link && ($link = $adminer->selectLink($row[$key], $field)) === null) {
 							if (is_mail($row[$key])) {
 								$link = "mailto:$row[$key]";
@@ -391,6 +413,7 @@ if (!$columns) {
 								);
 							}
 						}
+						
 						$id = h("val[$unique_idf][" . bracket_escape($key) . "]");
 						$value = $_POST["val"][$unique_idf][bracket_escape($key)];
 						$h_value = h($value !== null ? $value : $row[$key]);
@@ -403,12 +426,14 @@ if (!$columns) {
 						);
 					}
 				}
+				
 				if ($backward_keys) {
 					echo "<td>";
 				}
 				$adminer->backwardKeysPrint($backward_keys, $rows[$n]);
 				echo "</tr>\n"; // close to allow white-space: pre
 			}
+			
 			if (is_ajax()) {
 				exit;
 			}
@@ -427,6 +452,7 @@ if (!$columns) {
 					$exact_count = false;
 				}
 			}
+			
 			if (+$limit && ($found_rows === false || $found_rows > $limit || $page)) {
 				echo "<p class='pages'>";
 				// display first, previous 4, next 4 and last page
@@ -448,6 +474,7 @@ if (!$columns) {
 				}
 				echo (($found_rows === false ? count($rows) + 1 : $found_rows - $page * $limit) > $limit ? ' <a href="' . h(remove_from_uri("page") . "&page=" . ($page + 1)) . '" onclick="return !selectLoadMore(this, ' . (+$limit) . ', \'' . lang('Loading') . '\');">' . lang('Load more data') . '</a>' : '');
 			}
+			
 			echo "<p>\n";
 			echo ($found_rows !== false ? "(" . ($exact_count ? "" : "~ ") . lang('%d row(s)', $found_rows) . ") " : "");
 			echo checkbox("all", 1, 0, lang('whole result')) . "\n";
@@ -462,6 +489,7 @@ if (!$columns) {
 </div></fieldset>
 <?php
 			}
+			
 			$format = $adminer->dumpFormat();
 			foreach ((array) $_GET["columns"] as $column) {
 				if ($column["fun"]) {
@@ -478,6 +506,7 @@ if (!$columns) {
 				echo "</div></fieldset>\n";
 			}
 		}
+		
 		if ($adminer->selectImportPrint()) {
 			print_fieldset("import", lang('Import'), !$rows);
 			echo "<input type='file' name='csv_file'> ";

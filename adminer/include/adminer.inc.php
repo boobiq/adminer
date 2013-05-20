@@ -71,14 +71,14 @@ class Adminer {
 		?>
 <table cellspacing="0">
 <tr><th><?php echo lang('System'); ?><td><?php echo html_select("auth[driver]", $drivers, DRIVER, "loginDriver(this);"); ?>
-<tr><th><?php echo lang('Server'); ?><td><input name="auth[server]" value="<?php echo h(SERVER); ?>" title="hostname[:port]" autocapitalize="off">
+<tr><th><?php echo lang('Server'); ?><td><input name="auth[server]" value="<?php echo h(SERVER); ?>" title="hostname[:port]" placeholder="localhost" autocapitalize="off">
 <tr><th><?php echo lang('Username'); ?><td><input name="auth[username]" id="username" value="<?php echo h($_GET["username"]); ?>" autocapitalize="off">
 <tr><th><?php echo lang('Password'); ?><td><input type="password" name="auth[password]">
 <tr><th><?php echo lang('Database'); ?><td><input name="auth[db]" value="<?php echo h($_GET["db"]); ?>" autocapitalize="off">
 </table>
 <script type="text/javascript">
 var username = document.getElementById('username');
-username.focus();
+focus(username);
 username.form['auth[driver]'].onchange();
 </script>
 <?php
@@ -264,7 +264,7 @@ username.form['auth[driver]'].onchange();
 			if (!$val || ("$val[col]$val[val]" != "" && in_array($val["op"], $this->operators))) {
 				echo "<div><select name='where[$i][col]' onchange='$change_next'><option value=''>(" . lang('anywhere') . ")" . optionlist($columns, $val["col"], true) . "</select>";
 				echo html_select("where[$i][op]", $this->operators, $val["op"], $change_next);
-				echo "<input type='search' name='where[$i][val]' value='" . h($val["val"]) . "' onchange='" . ($val ? "selectFieldChange(this.form)" : "selectAddRow(this)") . ";' onsearch='selectSearch(this);'></div>\n";
+				echo "<input type='search' name='where[$i][val]' value='" . h($val["val"]) . "' onchange='" . ($val ? "selectFieldChange(this.form)" : "selectAddRow(this)") . ";' onsearch='selectSearchSearch(this);'></div>\n";
 			}
 		}
 		echo "</div></fieldset>\n";
@@ -570,9 +570,6 @@ username.form['auth[driver]'].onchange();
 		if (function_exists('gzencode')) {
 			$return['gz'] = 'gzip';
 		}
-		if (function_exists('bzcompress')) {
-			$return['bz2'] = 'bzip2';
-		}
 		return $return;
 	}
 	
@@ -593,22 +590,30 @@ username.form['auth[driver]'].onchange();
 	/** Export table structure
 	* @param string
 	* @param string
-	* @param bool
+	* @param int 0 table, 1 view, 2 temporary view table
 	* @return null prints data
 	*/
-	function dumpTable($table, $style, $is_view = false) {
+	function dumpTable($table, $style, $is_view = 0) {
 		if ($_POST["format"] != "sql") {
 			echo "\xef\xbb\xbf"; // UTF-8 byte order mark
 			if ($style) {
 				dump_csv(array_keys(fields($table)));
 			}
 		} elseif ($style) {
-			$create = create_sql($table, $_POST["auto_increment"]);
-			if ($create) {
-				if ($style == "DROP+CREATE") {
-					echo "DROP " . ($is_view ? "VIEW" : "TABLE") . " IF EXISTS " . table($table) . ";\n";
+			if ($is_view == 2) {
+				$fields = array();
+				foreach (fields($table) as $name => $field) {
+					$fields[] = idf_escape($name) . " $field[full_type]";
 				}
-				if ($is_view) {
+				$create = "CREATE TABLE " . table($table) . " (" . implode(", ", $fields) . ")";
+			} else {
+				$create = create_sql($table, $_POST["auto_increment"]);
+			}
+			if ($create) {
+				if ($style == "DROP+CREATE" || $is_view == 1) {
+					echo "DROP " . ($is_view == 2 ? "VIEW" : "TABLE") . " IF EXISTS " . table($table) . ";\n";
+				}
+				if ($is_view == 1) {
 					$create = remove_definer($create);
 				}
 				echo "$create;\n\n";
@@ -704,14 +709,10 @@ username.form['auth[driver]'].onchange();
 		$output = $_POST["output"];
 		$ext = (ereg('sql', $_POST["format"]) ? "sql" : ($multi_table ? "tar" : "csv")); // multiple CSV packed to TAR
 		header("Content-Type: " .
-			($output == "bz2" ? "application/x-bzip" :
 			($output == "gz" ? "application/x-gzip" :
 			($ext == "tar" ? "application/x-tar" :
 			($ext == "sql" || $output != "file" ? "text/plain" : "text/csv") . "; charset=utf-8"
-		))));
-		if ($output == "bz2") {
-			ob_start('bzcompress', 1e6);
-		}
+		)));
 		if ($output == "gz") {
 			ob_start('gzencode', 1e6);
 		}

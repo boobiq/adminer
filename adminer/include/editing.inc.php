@@ -3,7 +3,7 @@
 * @param Min_Result
 * @param Min_DB connection to examine indexes
 * @param string base link for <th> fields
-* @param array 
+* @param array
 * @return null
 */
 function select($result, $connection2 = null, $href = "", $orgtables = array()) {
@@ -127,15 +127,6 @@ function textarea($name, $value, $rows = 10, $cols = 80) {
 		echo h($value);
 	}
 	echo "</textarea>";
-}
-
-/** Format time difference
-* @param string output of microtime()
-* @param string output of microtime()
-* @return string HTML code
-*/
-function format_time($start, $end) {
-	return lang('%.3f s', max(0, array_sum(explode(" ", $end)) - array_sum(explode(" ", $start))));
 }
 
 /** Print table columns for type edit
@@ -269,7 +260,7 @@ function edit_fields($fields, $collations, $type = "TABLE", $foreign_keys = arra
 
 /** Move fields up and down or add field
 * @param array
-* @return null
+* @return bool
 */
 function process_fields(&$fields) {
 	ksort($fields);
@@ -287,8 +278,7 @@ function process_fields(&$fields) {
 			}
 			$offset++;
 		}
-	}
-	if ($_POST["down"]) {
+	} elseif ($_POST["down"]) {
 		$found = false;
 		foreach ($fields as $key => $field) {
 			if (isset($field["field"]) && $found) {
@@ -301,11 +291,13 @@ function process_fields(&$fields) {
 			}
 			$offset++;
 		}
-	}
-	$fields = array_values($fields);
-	if ($_POST["add"]) {
+	} elseif ($_POST["add"]) {
+		$fields = array_values($fields);
 		array_splice($fields, key($_POST["add"]), 0, array(array()));
+	} elseif (!$_POST["drop_col"]) {
+		return false;
 	}
+	return true;
 }
 
 /** Callback used in routine()
@@ -338,9 +330,12 @@ function grant($grant, $privileges, $columns, $on) {
 }
 
 /** Drop old object and create a new one
-* @param string drop query
-* @param string create query
-* @param string rollback query
+* @param string drop old object query
+* @param string create new object query
+* @param string drop new object query
+* @param string create test object query
+* @param string drop test object query
+* @param string
 * @param string
 * @param string
 * @param string
@@ -348,17 +343,23 @@ function grant($grant, $privileges, $columns, $on) {
 * @param string
 * @return null redirect in success
 */
-function drop_create($drop, $create, $rollback, $location, $message_drop, $message_alter, $message_create, $name) {
+function drop_create($drop, $create, $drop_created, $test, $drop_test, $location, $message_drop, $message_alter, $message_create, $old_name, $new_name) {
 	if ($_POST["drop"]) {
 		query_redirect($drop, $location, $message_drop);
+	} elseif ($old_name == "") {
+		query_redirect($create, $location, $message_create);
+	} elseif ($old_name != $new_name) {
+		$created = queries($create);
+		queries_redirect($location, $message_alter, $created && queries($drop));
+		if ($created) {
+			queries($drop_created);
+		}
 	} else {
-		if ($name != "") {
-			queries($drop);
-		}
-		queries_redirect($location, ($name != "" ? $message_alter : $message_create), queries($create));
-		if ($name != "") {
-			queries($rollback);
-		}
+		queries_redirect(
+			$location,
+			$message_alter,
+			queries($test) && queries($drop_test) && queries($drop) && queries($create)
+		);
 	}
 }
 
@@ -370,11 +371,12 @@ function drop_create($drop, $create, $rollback, $location, $message_drop, $messa
 function create_trigger($on, $row) {
 	global $jush;
 	$timing_event = " $row[Timing] $row[Event]";
-	return "CREATE TRIGGER " 
-		. idf_escape($row["Trigger"]) 
-		. ($jush == "mssql" ? $on . $timing_event : $timing_event . $on) 
-		. rtrim(" $row[Type]\n$row[Statement]", ";") 
-		. ";";
+	return "CREATE TRIGGER "
+		. idf_escape($row["Trigger"])
+		. ($jush == "mssql" ? $on . $timing_event : $timing_event . $on)
+		. rtrim(" $row[Type]\n$row[Statement]", ";")
+		. ";"
+	;
 }
 
 /** Generate SQL query for creating routine
@@ -392,13 +394,14 @@ function create_routine($routine, $row) {
 			$set[] = (ereg("^($inout)\$", $field["inout"]) ? "$field[inout] " : "") . idf_escape($field["field"]) . process_type($field, "CHARACTER SET");
 		}
 	}
-	return "CREATE $routine " 
-		. idf_escape(trim($row["name"])) 
-		. " (" . implode(", ", $set) . ")" 
-		. (isset($_GET["function"]) ? " RETURNS" . process_type($row["returns"], "CHARACTER SET") : "") 
-		. ($row["language"] ? " LANGUAGE $row[language]" : "") 
-		. rtrim("\n$row[definition]", ";") 
-		. ";";
+	return "CREATE $routine "
+		. idf_escape(trim($row["name"]))
+		. " (" . implode(", ", $set) . ")"
+		. (isset($_GET["function"]) ? " RETURNS" . process_type($row["returns"], "CHARACTER SET") : "")
+		. ($row["language"] ? " LANGUAGE $row[language]" : "")
+		. rtrim("\n$row[definition]", ";")
+		. ";"
+	;
 }
 
 /** Remove current user definer from SQL command
@@ -409,19 +412,22 @@ function remove_definer($query) {
 	return preg_replace('~^([A-Z =]+) DEFINER=`' . preg_replace('~@(.*)~', '`@`(%|\\1)', logged_user()) . '`~', '\\1', $query); //! proper escaping of user
 }
 
-/** Get string to add a file in TAR
+/** Add a file to TAR
 * @param string
-* @param string
-* @return string
+* @param TmpFile
+* @return null prints the output
 */
-function tar_file($filename, $contents) {
-	$return = pack("a100a8a8a8a12a12", $filename, 644, 0, 0, decoct(strlen($contents)), decoct(time()));
+function tar_file($filename, $tmp_file) {
+	$return = pack("a100a8a8a8a12a12", $filename, 644, 0, 0, decoct($tmp_file->size), decoct(time()));
 	$checksum = 8*32; // space for checksum itself
 	for ($i=0; $i < strlen($return); $i++) {
 		$checksum += ord($return[$i]);
 	}
 	$return .= sprintf("%06o", $checksum) . "\0 ";
-	return $return . str_repeat("\0", 512 - strlen($return)) . $contents . str_repeat("\0", 511 - (strlen($contents) + 511) % 512);
+	echo $return;
+	echo str_repeat("\0", 512 - strlen($return));
+	$tmp_file->send();
+	echo str_repeat("\0", 511 - ($tmp_file->size + 511) % 512);
 }
 
 /** Get INI bytes value

@@ -4,9 +4,10 @@ $fields = fields($TABLE);
 if (!$fields) {
 	$error = error();
 }
-$table_status = ($fields ? table_status($TABLE, true) : array());
+$table_status = table_status($TABLE, true);
 
 page_header(($fields && is_view($table_status) ? lang('View') : lang('Table')) . ": " . h($TABLE), $error);
+
 $adminer->selectLinks($table_status);
 $comment = $table_status["Comment"];
 if ($comment != "") {
@@ -26,7 +27,7 @@ if ($fields) {
 	echo "</table>\n";
 	
 	if (!is_view($table_status)) {
-		echo "<h3>" . lang('Indexes') . "</h3>\n";
+		echo "<h3 id='indexes'>" . lang('Indexes') . "</h3>\n";
 		$indexes = indexes($TABLE);
 		if ($indexes) {
 			echo "<table cellspacing='0'>\n";
@@ -43,7 +44,7 @@ if ($fields) {
 		echo '<p><a href="' . h(ME) . 'indexes=' . urlencode($TABLE) . '">' . lang('Alter indexes') . "</a>\n";
 		
 		if (fk_support($table_status)) {
-			echo "<h3>" . lang('Foreign keys') . "</h3>\n";
+			echo "<h3 id='foreign-keys'>" . lang('Foreign keys') . "</h3>\n";
 			$foreign_keys = foreign_keys($TABLE);
 			if ($foreign_keys) {
 				echo "<table cellspacing='0'>\n";
@@ -68,7 +69,7 @@ if ($fields) {
 		}
 		
 		if (support("trigger")) {
-			echo "<h3>" . lang('Triggers') . "</h3>\n";
+			echo "<h3 id='triggers'>" . lang('Triggers') . "</h3>\n";
 			$triggers = triggers($TABLE);
 			if ($triggers) {
 				echo "<table cellspacing='0'>\n";
@@ -79,5 +80,6 @@ if ($fields) {
 			}
 			echo '<p><a href="' . h(ME) . 'trigger=' . urlencode($TABLE) . '">' . lang('Add trigger') . "</a>\n";
 		}
+		
 	}
 }

@@ -18,16 +18,18 @@ page_header(lang('Process list'), $error);
 // HTML valid because there is always at least one process
 $i = -1;
 foreach (process_list() as $i => $row) {
+	
 	if (!$i) {
 		echo "<thead><tr lang='en'>" . (support("kill") ? "<th>&nbsp;" : "");
 		foreach ($row as $key => $val) {
-			echo "<th>" . ($jush == "sql" 
+			echo "<th>" . ($jush == "sql"
 				? "<a href='http://dev.mysql.com/doc/refman/" . substr($connection->server_info, 0, 3) . "/en/show-processlist.html#processlist_" . strtolower($key) . "' target='_blank' rel='noreferrer' class='help'>$key</a>"
 				: $key
 			);
 		}
 		echo "</thead>\n";
 	}
+	
 	echo "<tr" . odd() . ">" . (support("kill") ? "<td>" . checkbox("kill[]", $row["Id"], 0) : "");
 	foreach ($row as $key => $val) {
 		echo "<td>" . (

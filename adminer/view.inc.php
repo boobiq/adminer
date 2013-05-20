@@ -1,26 +1,39 @@
 <?php
 $TABLE = $_GET["view"];
-$row = ($TABLE == "" ? array() : view($TABLE));
-$row["name"] = $TABLE;
+$row = $_POST;
 
-if ($_POST) {
-	if (!$error) {
-		$name = trim($_POST["name"]);
+if ($_POST && !$error) {
+	$name = trim($row["name"]);
+	$as = " AS\n$row[select]";
+	$location = ME . "table=" . urlencode($name);
+	$message = lang('View has been altered.');
+	
+	if (!$_POST["drop"] && $TABLE == $name && $jush != "sqlite") {
+		query_redirect(($jush == "mssql" ? "ALTER" : "CREATE OR REPLACE") . " VIEW " . table($name) . $as, $location, $message);
+	} else {
+		$temp_name = $name . "_adminer_" . uniqid();
 		drop_create(
 			"DROP VIEW " . table($TABLE),
-			"CREATE VIEW " . table($name) . " AS\n$_POST[select]",
-			"CREATE VIEW " . table($TABLE) . " AS\n$row[select]",
-			($_POST["drop"] ? substr(ME, 0, -1) : ME . "table=" . urlencode($name)),
+			"CREATE VIEW " . table($name) . $as,
+			"DROP VIEW " . table($name),
+			"CREATE VIEW " . table($temp_name) . $as,
+			"DROP VIEW " . table($temp_name),
+			($_POST["drop"] ? substr(ME, 0, -1) : $location),
 			lang('View has been dropped.'),
-			lang('View has been altered.'),
+			$message,
 			lang('View has been created.'),
-			$TABLE
+			$TABLE,
+			$name
 		);
 	}
-	$row = $_POST;
 }
 
 page_header(($TABLE != "" ? lang('Alter view') : lang('Create view')), $error, array("table" => $TABLE), $TABLE);
+
+if (!$_POST && $TABLE != "") {
+	$row = view($TABLE);
+	$row["name"] = $TABLE;
+}
 ?>
 
 <form action="" method="post">

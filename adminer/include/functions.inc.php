@@ -303,7 +303,7 @@ function get_rows($query, $connection2 = null, $error = "<p class='error'>") {
 /** Find unique identifier of a row
 * @param array
 * @param array result of indexes()
-* @return array
+* @return array or null if there is no unique identifier
 */
 function unique_array($row, $indexes) {
 	foreach ($indexes as $index) {
@@ -318,13 +318,6 @@ function unique_array($row, $indexes) {
 			return $return;
 		}
 	}
-	$return = array();
-	foreach ($row as $key => $val) {
-		if (!preg_match('~^(COUNT\\((\\*|(DISTINCT )?`(?:[^`]|``)+`)\\)|(AVG|GROUP_CONCAT|MAX|MIN|SUM)\\(`(?:[^`]|``)+`\\))$~', $key)) { //! columns looking like functions
-			$return[$key] = $val;
-		}
-	}
-	return $return;
 }
 
 /** Create SQL condition from parsed query string
@@ -565,6 +558,15 @@ function queries_redirect($location, $message, $redirect) {
 	return query_redirect(queries(), $location, $message, $redirect, false, !$redirect);
 }
 
+/** Format time difference
+* @param string output of microtime()
+* @param string output of microtime()
+* @return string HTML code
+*/
+function format_time($start, $end) {
+	return lang('%.3f s', max(0, array_sum(explode(" ", $end)) - array_sum(explode(" ", $start))));
+}
+
 /** Remove parameter from query string
 * @param string
 * @return string
@@ -595,17 +597,17 @@ function get_file($key, $decompress = false) {
 	foreach ($file as $key => $val) {
 		$file[$key] = (array) $val;
 	}
-	$return = array();
+	$return = '';
 	foreach ($file["error"] as $key => $error) {
 		if ($error) {
 			return $error;
 		}
 		$name = $file["name"][$key];
 		$tmp_name = $file["tmp_name"][$key];
-		$content = file_get_contents($decompress && ereg('\\.gz$', $name) ? "compress.zlib://$tmp_name"
-			: ($decompress && ereg('\\.bz2$', $name) ? "compress.bzip2://$tmp_name"
+		$content = file_get_contents($decompress && ereg('\\.gz$', $name)
+			? "compress.zlib://$tmp_name"
 			: $tmp_name
-		)); //! may not be reachable because of open_basedir
+		); //! may not be reachable because of open_basedir
 		if ($decompress) {
 			$start = substr($content, 0, 3);
 			if (function_exists("iconv") && ereg("^\xFE\xFF|^\xFF\xFE", $start, $regs)) { // not ternary operator to save memory
@@ -614,10 +616,10 @@ function get_file($key, $decompress = false) {
 				$content = substr($content, 3);
 			}
 		}
-		$return[] = $content;
+		$return .= $content . "\n\n";
 	}
 	//! support SQL files not ending with semicolon
-	return implode("\n\n\n", $return);
+	return $return;
 }
 
 /** Determine upload error
@@ -873,6 +875,8 @@ function dump_headers($identifier, $multi_table = false) {
 		header("Content-Disposition: attachment; filename=" . $adminer->dumpFilename($identifier) . ".$return" . ($output != "file" && !ereg('[^0-9a-z]', $output) ? ".$output" : ""));
 	}
 	session_write_close();
+	ob_flush();
+	flush();
 	return $return;
 }
 

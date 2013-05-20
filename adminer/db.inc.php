@@ -7,6 +7,7 @@ if ($tables_views && !$error && !$_POST["search"]) {
 	if ($jush == "sql" && count($_POST["tables"]) > 1 && ($_POST["drop"] || $_POST["truncate"] || $_POST["copy"])) {
 		queries("SET foreign_key_checks = 0"); // allows to truncate or drop several tables at once
 	}
+	
 	if ($_POST["truncate"]) {
 		if ($_POST["tables"]) {
 			$result = truncate_tables($_POST["tables"]);
@@ -39,6 +40,7 @@ if ($tables_views && !$error && !$_POST["search"]) {
 			$message .= "<b>" . h($row["Table"]) . "</b>: " . h($row["Msg_text"]) . "<br>";
 		}
 	}
+	
 	queries_redirect(substr(ME, 0, -1), $message, $result);
 }
 
@@ -46,7 +48,7 @@ page_header(($_GET["ns"] == "" ? lang('Database') . ": " . h(DB) : lang('Schema'
 
 if ($adminer->homepage()) {
 	if ($_GET["ns"] !== "") {
-		echo "<h3>" . lang('Tables and views') . "</h3>\n";
+		echo "<h3 id='tables-views'>" . lang('Tables and views') . "</h3>\n";
 		$tables_list = tables_list();
 		if (!$tables_list) {
 			echo "<p class='message'>" . lang('No tables.') . "\n";
@@ -57,6 +59,7 @@ if ($adminer->homepage()) {
 				search_tables();
 			}
 			echo "<table cellspacing='0' class='nowrap checkable' onclick='tableClick(event);' ondblclick='tableClick(event, true);'>\n";
+			
 			echo '<thead><tr class="wrap"><td><input id="check-all" type="checkbox" onclick="formCheck(this, /^(tables|views)\[/);">';
 			echo '<th>' . lang('Table');
 			echo '<td>' . lang('Engine');
@@ -68,6 +71,7 @@ if ($adminer->homepage()) {
 			echo '<td>' . lang('Rows');
 			echo (support("comment") ? '<td>' . lang('Comment') : '');
 			echo "</thead>\n";
+			
 			foreach ($tables_list as $name => $type) {
 				$view = ($type !== null && !eregi("table", $type));
 				echo '<tr' . odd() . '><td>' . checkbox(($view ? "views[]" : "tables[]"), $name, in_array($name, $tables_views, true), "", "formUncheck('check-all');");
@@ -90,12 +94,14 @@ if ($adminer->homepage()) {
 				}
 				echo (support("comment") ? "<td id='Comment-" . h($name) . "'>&nbsp;" : "");
 			}
+			
 			echo "<tr><td>&nbsp;<th>" . lang('%d in total', count($tables_list));
 			echo "<td>" . nbsp($jush == "sql" ? $connection->result("SELECT @@storage_engine") : "");
 			echo "<td>" . nbsp(db_collation(DB, collations()));
 			foreach (array("Data_length", "Index_length", "Data_free") as $key) {
 				echo "<td align='right' id='sum-$key'>&nbsp;";
 			}
+			
 			echo "</table>\n";
 			echo "<script type='text/javascript'>tableCheck();</script>\n";
 			if (!information_schema(DB)) {
@@ -123,7 +129,7 @@ if ($adminer->homepage()) {
 		}
 	
 		if (support("routine")) {
-			echo "<h3>" . lang('Routines') . "</h3>\n";
+			echo "<h3 id='routines'>" . lang('Routines') . "</h3>\n";
 			$routines = routines();
 			if ($routines) {
 				echo "<table cellspacing='0'>\n";
@@ -142,7 +148,7 @@ if ($adminer->homepage()) {
 		}
 		
 		if (support("sequence")) {
-			echo "<h3>" . lang('Sequences') . "</h3>\n";
+			echo "<h3 id='sequences'>" . lang('Sequences') . "</h3>\n";
 			$sequences = get_vals("SELECT sequence_name FROM information_schema.sequences WHERE sequence_schema = current_schema()");
 			if ($sequences) {
 				echo "<table cellspacing='0'>\n";
@@ -157,7 +163,7 @@ if ($adminer->homepage()) {
 		}
 		
 		if (support("type")) {
-			echo "<h3>" . lang('User types') . "</h3>\n";
+			echo "<h3 id='user-types'>" . lang('User types') . "</h3>\n";
 			$user_types = types();
 			if ($user_types) {
 				echo "<table cellspacing='0'>\n";
@@ -172,7 +178,7 @@ if ($adminer->homepage()) {
 		}
 		
 		if (support("event")) {
-			echo "<h3>" . lang('Events') . "</h3>\n";
+			echo "<h3 id='events'>" . lang('Events') . "</h3>\n";
 			$rows = get_rows("SHOW EVENTS");
 			if ($rows) {
 				echo "<table cellspacing='0'>\n";

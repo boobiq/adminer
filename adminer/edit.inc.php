@@ -8,6 +8,7 @@ foreach ($fields as $name => $field) {
 		unset($fields[$name]);
 	}
 }
+
 if ($_POST && !$error && !isset($_GET["select"])) {
 	$location = $_POST["referer"];
 	if ($_POST["insert"]) { // continue edit or insert
@@ -15,8 +16,18 @@ if ($_POST && !$error && !isset($_GET["select"])) {
 	} elseif (!ereg('^.+&select=.+$', $location)) {
 		$location = ME . "select=" . urlencode($TABLE);
 	}
+	
+	$indexes = indexes($TABLE);
+	$unique_array = unique_array($_GET["where"], $indexes);
+	$query_where = "\nWHERE $where";
+	
 	if (isset($_POST["delete"])) {
-		query_redirect("DELETE" . limit1("FROM " . table($TABLE), " WHERE $where"), $location, lang('Item has been deleted.'));
+		$query = "FROM " . table($TABLE);
+		query_redirect(
+			"DELETE" . ($unique_array ? " $query$query_where" : limit1($query, $query_where)),
+			$location,
+			lang('Item has been deleted.')
+		);
 	} else {
 		$set = array();
 		foreach ($fields as $name => $field) {
@@ -25,11 +36,17 @@ if ($_POST && !$error && !isset($_GET["select"])) {
 				$set[idf_escape($name)] = ($update ? "\n" . idf_escape($name) . " = $val" : $val);
 			}
 		}
+		
 		if ($update) {
 			if (!$set) {
 				redirect($location);
 			}
-			query_redirect("UPDATE" . limit1(table($TABLE) . " SET" . implode(",", $set), "\nWHERE $where"), $location, lang('Item has been updated.'));
+			$query = table($TABLE) . " SET" . implode(",", $set);
+			query_redirect(
+				"UPDATE" . ($unique_array ? " $query$query_where" : limit1($query, $query_where)),
+				$location,
+				lang('Item has been updated.')
+			);
 		} else {
 			$result = insert_into($TABLE, $set);
 			$last_id = ($result ? last_id() : 0);
@@ -81,6 +98,7 @@ if (!$fields) {
 	echo "<p class='error'>" . lang('You have no privileges to update this table.') . "\n";
 } else {
 	echo "<table cellspacing='0' onkeydown='return editingKeydown(event);'>\n";
+	
 	foreach ($fields as $name => $field) {
 		echo "<tr><th>" . $adminer->fieldName($field);
 		$default = $_GET["set"][bracket_escape($name)];
@@ -105,6 +123,7 @@ if (!$fields) {
 		input($field, $value, $function);
 		echo "\n";
 	}
+	
 	echo "</table>\n";
 }
 ?>
@@ -117,7 +136,7 @@ if ($fields) {
 	}
 }
 echo ($update ? "<input type='submit' name='delete' value='" . lang('Delete') . "' onclick=\"return confirm('" . lang('Are you sure?') . "');\">\n"
-	: ($_POST || !$fields ? "" : "<script type='text/javascript'>document.getElementById('form').getElementsByTagName('td')[1].firstChild.focus();</script>\n")
+	: ($_POST || !$fields ? "" : "<script type='text/javascript'>focus(document.getElementById('form').getElementsByTagName('td')[1].firstChild);</script>\n")
 );
 if (isset($_GET["select"])) {
 	hidden_fields(array("check" => (array) $_POST["check"], "clone" => $_POST["clone"], "all" => $_POST["all"]));
