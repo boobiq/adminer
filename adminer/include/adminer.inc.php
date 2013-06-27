@@ -840,6 +840,7 @@ echo ($databases
 	*/
 	function tablesPrint($tables) {
 		echo "<p id='tables' onmouseover='menuOver(this, event);' onmouseout='menuOut(this);'>\n";
+		ksort($tables);
 		foreach ($tables as $table => $status) {
 			echo '<a href="' . h(ME) . 'select=' . urlencode($table) . '"' . bold($_GET["select"] == $table) . ">" . lang('select') . "</a> ";
 			echo '<a href="' . h(ME) . 'table=' . urlencode($table) . '"' . bold($_GET["table"] == $table) . " title='" . lang('Show structure') . "'>" . $this->tableName($status) . "</a><br>\n";
