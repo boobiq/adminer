@@ -1,4 +1,13 @@
 
+/** Add or remove CSS class
+* @param HTMLElement
+* @param string
+* @param [bool]
+*/
+function alterClass(el, className, enable) {
+	el.className = el.className.replace(RegExp('(^|\\s)' + className + '(\\s|$)'), '$2') + (enable ? ' ' + className : '');
+}
+
 /** Toggle visibility
 * @param string
 * @return boolean
@@ -30,22 +39,34 @@ function verifyVersion() {
 }
 
 /** Get value of select
-* @param HTMLSelectElement
+* @param HTMLElement <select> or <input>
 * @return string
 */
 function selectValue(select) {
+	if (!select.selectedIndex) {
+		return select.value;
+	}
 	var selected = select.options[select.selectedIndex];
 	return ((selected.attributes.value || {}).specified ? selected.value : selected.text);
 }
 
-/** Get parent node with specified tag name.
+/** Verify if element has a specified tag name
+ * @param HTMLElement
+ * @param string regular expression
+ * @return bool
+ */
+function isTag(el, tag) {
+	var re = new RegExp('^(' + tag + ')$', 'i');
+	return re.test(el.tagName);
+}
+
+/** Get parent node with specified tag name
  * @param HTMLElement
  * @param string regular expression
  * @return HTMLElement
  */
 function parentTag(el, tag) {
-	var re = new RegExp('^' + tag + '$', 'i');
-	while (el && !re.test(el.tagName)) {
+	while (el && !isTag(el, tag)) {
 		el = el.parentNode;
 	}
 	return el;
@@ -56,7 +77,25 @@ function parentTag(el, tag) {
 */
 function trCheck(el) {
 	var tr = parentTag(el, 'tr');
-	tr.className = tr.className.replace(/(^|\s)checked(\s|$)/, '$2') + (el.checked ? ' checked' : '');
+	alterClass(tr, 'checked', el.checked);
+	if (el.form && el.form['all']) {
+		el.form['all'].onclick();
+	}
+}
+
+/** Fill number of selected items
+* @param string
+* @param string
+*/
+function selectCount(id, count) {
+	setHtml(id, (count === '' ? '' : '(' + (count + '').replace(/\B(?=(\d{3})+$)/g, ' ') + ')'));
+	var inputs = document.getElementById(id).parentNode.parentNode.getElementsByTagName('input');
+	for (var i = 0; i < inputs.length; i++) {
+		var input = inputs[i];
+		if (input.type == 'submit') {
+			input.disabled = (count == '0');
+		}
+	}
 }
 
 /** Check all elements matching given name
@@ -118,9 +157,9 @@ function formChecked(el, name) {
 */
 function tableClick(event, click) {
 	click = (click || !window.getSelection || getSelection().isCollapsed);
-	var el = event.target || event.srcElement;
-	while (!/^tr$/i.test(el.tagName)) {
-		if (/^(table|a|input|textarea)$/i.test(el.tagName)) {
+	var el = getTarget(event);
+	while (!isTag(el, 'tr')) {
+		if (isTag(el, 'table|a|input|textarea')) {
 			if (el.type != 'checkbox') {
 				return;
 			}
@@ -217,8 +256,8 @@ function pageClick(href, page, event) {
 * @param MouseEvent
 */
 function menuOver(el, event) {
-	var a = event.target;
-	if (/^a$/i.test(a.tagName) && a.offsetLeft + a.offsetWidth > a.parentNode.offsetWidth - 15) { // 15 - ellipsis
+	var a = getTarget(event);
+	if (isTag(a, 'a|span') && a.offsetLeft + a.offsetWidth > a.parentNode.offsetWidth - 15) { // 15 - ellipsis
 		el.style.overflow = 'visible';
 	}
 }
@@ -247,10 +286,10 @@ function selectAddRow(field) {
 		selects[i].selectedIndex = 0;
 	}
 	var inputs = row.getElementsByTagName('input');
-	if (inputs.length) {
-		inputs[0].name = inputs[0].name.replace(/[a-z]\[\d+/, '$&1');
-		inputs[0].value = '';
-		inputs[0].className = '';
+	for (var i=0; i < inputs.length; i++) {
+		inputs[i].name = inputs[i].name.replace(/[a-z]\[\d+/, '$&1');
+		inputs[i].value = '';
+		inputs[i].className = '';
 	}
 	field.parentNode.parentNode.appendChild(row);
 }
@@ -290,7 +329,7 @@ function selectSearch(name, op) {
 	var divs = el.getElementsByTagName('div');
 	for (var i=0; i < divs.length; i++) {
 		var div = divs[i];
-		if (/select/i.test(div.firstChild.tagName) && selectValue(div.firstChild) == name) {
+		if (isTag(div.firstChild, 'select') && selectValue(div.firstChild) == name) {
 			break;
 		}
 	}
@@ -311,6 +350,14 @@ function isCtrl(event) {
 	return (event.ctrlKey || event.metaKey) && !event.altKey; // shiftKey allowed
 }
 
+/** Return event target
+* @param Event
+* @return HTMLElement
+*/
+function getTarget(event) {
+	return event.target || event.srcElement;
+}
+
 
 
 /** Send form by Ctrl+Enter on <select> and <textarea>
@@ -319,14 +366,18 @@ function isCtrl(event) {
 * @return boolean
 */
 function bodyKeydown(event, button) {
-	var target = event.target || event.srcElement;
-	if (isCtrl(event) && (event.keyCode == 13 || event.keyCode == 10) && /select|textarea|input/i.test(target.tagName)) { // 13|10 - Enter
+	var target = getTarget(event);
+	if (target.jushTextarea) {
+		target = target.jushTextarea;
+	}
+	if (isCtrl(event) && (event.keyCode == 13 || event.keyCode == 10) && isTag(target, 'select|textarea|input')) { // 13|10 - Enter
 		target.blur();
 		if (button) {
 			target.form[button].click();
 		} else {
 			target.form.submit();
 		}
+		target.focus();
 		return false;
 	}
 	return true;
@@ -336,8 +387,8 @@ function bodyKeydown(event, button) {
 * @param MouseEvent
 */
 function bodyClick(event) {
-	var target = event.target || event.srcElement;
-	if ((isCtrl(event) || event.shiftKey) && target.type == 'submit' && /input/i.test(target.tagName)) {
+	var target = getTarget(event);
+	if ((isCtrl(event) || event.shiftKey) && target.type == 'submit' && isTag(target, 'input')) {
 		target.form.target = '_blank';
 		setTimeout(function () {
 			// if (isCtrl(event)) { focus(); } doesn't work
@@ -354,10 +405,10 @@ function bodyClick(event) {
 */
 function editingKeydown(event) {
 	if ((event.keyCode == 40 || event.keyCode == 38) && isCtrl(event)) { // 40 - Down, 38 - Up
-		var target = event.target || event.srcElement;
+		var target = getTarget(event);
 		var sibling = (event.keyCode == 40 ? 'nextSibling' : 'previousSibling');
 		var el = target.parentNode.parentNode[sibling];
-		if (el && (/^tr$/i.test(el.tagName) || (el = el[sibling])) && /^tr$/i.test(el.tagName) && (el = el.childNodes[nodePosition(target.parentNode)]) && (el = el.childNodes[nodePosition(target)])) {
+		if (el && (isTag(el, 'tr') || (el = el[sibling])) && isTag(el, 'tr') && (el = el.childNodes[nodePosition(target.parentNode)]) && (el = el.childNodes[nodePosition(target)])) {
 			el.focus();
 		}
 		return false;
@@ -381,6 +432,17 @@ function functionChange(select) {
 		input.removeAttribute('maxlength');
 	} else if (input.origMaxLength >= 0) {
 		input.maxLength = input.origMaxLength;
+	}
+	helpClose();
+}
+
+/** Call this.onchange() if value changes
+* @this HTMLInputElement
+*/
+function keyupChange() {
+	if (this.value != this.getAttribute('value')) {
+		this.onchange();
+		this.setAttribute('value', this.value);
 	}
 }
 
@@ -425,6 +487,42 @@ function ajaxSetHtml(url) {
 	});
 }
 
+/** Save form contents through AJAX
+* @param HTMLFormElement
+* @param string
+* @param [HTMLInputElement]
+* @return boolean
+*/
+function ajaxForm(form, message, button) {
+	var data = [];
+	var els = form.elements;
+	for (var i = 0; i < els.length; i++) {
+		var el = els[i];
+		if (el.name && !el.disabled) {
+			if (/^file$/i.test(el.type) && el.value) {
+				return false;
+			}
+			if (!/^(checkbox|radio|submit|file)$/i.test(el.type) || el.checked || el == button) {
+				data.push(encodeURIComponent(el.name) + '=' + encodeURIComponent(isTag(el, 'select') ? selectValue(el) : el.value));
+			}
+		}
+	}
+	data = data.join('&');
+	
+	setHtml('message', message);
+	var url = form.action;
+	if (!/post/i.test(form.method)) {
+		url = url.replace(/\?.*/, '') + '?' + data;
+		data = '';
+	}
+	return ajax(url, function (request) {
+		setHtml('message', request.responseText);
+		if (window.jush) {
+			jush.highlight_tag('code', 0);
+		}
+	}, data);
+}
+
 
 
 /** Display edit field
@@ -434,8 +532,8 @@ function ajaxSetHtml(url) {
 * @param string warning to display
 */
 function selectClick(td, event, text, warning) {
-	var target = event.target || event.srcElement;
-	if (!isCtrl(event) || /input|textarea/i.test(td.firstChild.tagName) || /^a$/i.test(target.tagName)) {
+	var target = getTarget(event);
+	if (!isCtrl(event) || isTag(td.firstChild, 'input|textarea') || isTag(target, 'a')) {
 		return;
 	}
 	if (warning) {
@@ -449,6 +547,7 @@ function selectClick(td, event, text, warning) {
 			event = window.event;
 		}
 		if (event.keyCode == 27 && !event.shiftKey && !event.altKey && !isCtrl(event)) { // 27 - Esc
+			inputBlur.apply(input);
 			td.innerHTML = original;
 		}
 	};
@@ -548,11 +647,18 @@ function setupSubmitHighlight(parent) {
 	for (var key in { input: 1, select: 1, textarea: 1 }) {
 		var inputs = parent.getElementsByTagName(key);
 		for (var i = 0; i < inputs.length; i++) {
-			if (!/submit|image|file/.test(inputs[i].type)) {
-				addEvent(inputs[i], 'focus', inputFocus);
-				addEvent(inputs[i], 'blur', inputBlur);
-			}
+			setupSubmitHighlightInput(inputs[i])
 		}
+	}
+}
+
+/** Setup submit highlighting for single element
+* @param HTMLElement
+*/
+function setupSubmitHighlightInput(input) {
+	if (!/submit|image|file/.test(input.type)) {
+		addEvent(input, 'focus', inputFocus);
+		addEvent(input, 'blur', inputBlur);
 	}
 }
 
@@ -560,9 +666,9 @@ function setupSubmitHighlight(parent) {
 * @this HTMLInputElement
 */
 function inputFocus() {
-	var submit = findDefaultSubmit(this.form);
+	var submit = findDefaultSubmit(this);
 	if (submit) {
-		submit.className += ' default';
+		alterClass(submit, 'default', true);
 	}
 }
 
@@ -570,21 +676,24 @@ function inputFocus() {
 * @this HTMLInputElement
 */
 function inputBlur() {
-	var submit = findDefaultSubmit(this.form);
+	var submit = findDefaultSubmit(this);
 	if (submit) {
-		submit.className = submit.className.replace(/ default( |$)/, '$1');
+		alterClass(submit, 'default');
 	}
 }
 
 /** Find submit button used by Enter
-* @param HTMLFormElement
+* @param HTMLElement
 * @return HTMLInputElement
 */
-function findDefaultSubmit(form) {
-	var inputs = form.getElementsByTagName('input');
+function findDefaultSubmit(el) {
+	if (el.jushTextarea) {
+		el = el.jushTextarea;
+	}
+	var inputs = el.form.getElementsByTagName('input');
 	for (var i = 0; i < inputs.length; i++) {
 		var input = inputs[i];
-		if (input.type == 'submit') {
+		if (input.type == 'submit' && !input.style.zIndex) {
 			return input;
 		}
 	}

@@ -1,3 +1,44 @@
+Adminer 4.0.0-dev:
+Driver for MongoDB, SimpleDB and Elasticsearch
+Save and continue edit by AJAX
+Split SQL command and import
+Add a new column in alter table on key press
+Mark length as required for strings
+Add label to database selection
+Add button for dropping an index
+Display number of selected rows
+Add links to documentation
+Disable underlining links
+Improve speed of CSV import
+Keep form values after refresh in Firefox
+Encrypt passwords stored in session by a key stored in cookie
+Don't append newlines to uploaded files, bug since Adminer 3.7.0
+Don't display SQL edit form on Ctrl+click on the select query, introduced in Adminer 3.6.4
+Use MD5 for editing long keys only in supported drivers, bug since Adminer 3.6.4
+SQLite: Allow editing primary key
+SQLite: Allow editing foreign keys
+PostgreSQL: Fix handling of nextval() default values
+PostgreSQL: Support creating array columns
+Thai translation
+
+Adminer 3.7.1 (released 2013-06-29):
+Increase click target for checkboxes
+Use shadow for highlighting default button
+Don't use LIMIT 1 if inline updating unique row
+Don't check previous checkbox on added column in create table (bug #3614245)
+Order table list by name
+Verify UTF-8 encoding of CSV import
+Notify user about expired master password for permanent login
+Highlight table being altered in navigation
+Send 404 for invalid database and schema
+Fix title and links on invalid table pages
+Display error on invalid alter table and view pages
+MySQL: Speed up updating rows without numeric or UTF-8 primary key
+Non-MySQL: Descending indexes
+PostgreSQL: Fix detecting oid column in PDO
+PostgreSQL: Handle timestamp types (bug #3614086)
+Add Korean translation
+
 Adminer 3.7.0 (released 2013-05-19):
 Allow more SQL files to be uploaded at the same time
 Print run time next to executed queries
@@ -21,7 +62,7 @@ MySQL: Fix handling of POINT data type (bug #3582578)
 MySQL: Don't export binary and geometry columns twice in select
 MySQL: Fix EXPLAIN in MySQL < 5.1, bug since Adminer 3.6.4
 SQLite: Export views
-PostgreSQL: Fix swapped NULL and NOT NULL columns in weird setups
+PostgreSQL: Fix swapped NULL and NOT NULL columns in PDO
 
 Adminer 3.6.4 (released 2013-04-26):
 Display pagination on a fixed position

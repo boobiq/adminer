@@ -278,7 +278,7 @@ function minify_css($file) {
 }
 
 function minify_js($file) {
-	$file = str_replace("'../externals/jush/'", "location.protocol + '//www.adminer.org/static/'", $file);
+	$file = str_replace("'../externals/jush/'", "location.protocol + '//www.adminer.org/static/jush/2.0.0/'", $file);
 	if (function_exists('jsShrink')) {
 		$file = jsShrink($file);
 	}
@@ -327,7 +327,7 @@ if ($_SERVER["argv"][1]) {
 $filename = dirname(__FILE__) . "/adminer/drivers/mysql.inc.php";
 preg_match_all('~\\bfunction ([^(]+)~', file_get_contents($filename), $matches); //! respect context (extension, class)
 $functions = array_combine($matches[1], $matches[0]);
-unset($functions["__destruct"], $functions["Min_DB"], $functions["Min_Result"]);
+unset($functions["__destruct"], $functions["Min_DB"], $functions["Min_Result"], $functions["Min_Driver"]);
 foreach (glob(dirname(__FILE__) . "/adminer/drivers/" . ($driver ? $driver : "*") . ".inc.php") as $filename) {
 	if ($filename != "mysql.inc.php") {
 		$file = file_get_contents($filename);
@@ -340,6 +340,7 @@ foreach (glob(dirname(__FILE__) . "/adminer/drivers/" . ($driver ? $driver : "*"
 }
 
 include dirname(__FILE__) . "/adminer/include/pdo.inc.php";
+include dirname(__FILE__) . "/adminer/include/driver.inc.php";
 $features = array("call" => "routine", "dump", "event", "privileges", "procedure" => "routine", "processlist", "routine", "scheme", "sequence", "status", "trigger", "type", "user" => "privileges", "variables", "view");
 $lang_ids = array(); // global variable simplifies usage in a callback function
 $file = file_get_contents(dirname(__FILE__) . "/$project/index.php");
@@ -393,5 +394,5 @@ $file = preg_replace("~<\\?php\\s*\\?>\n?|\\?>\n?<\\?php~", '', $file);
 $file = php_shrink($file);
 
 $filename = $project . (preg_match('~-dev$~', $VERSION) ? "" : "-$VERSION") . ($driver ? "-$driver" : "") . ($_SESSION["lang"] ? "-$_SESSION[lang]" : "") . ".php";
-fwrite(fopen($filename, "w"), $file); // file_put_contents() since PHP 5
+file_put_contents($filename, $file);
 echo "$filename created (" . strlen($file) . " B).\n";

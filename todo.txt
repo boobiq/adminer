@@ -21,16 +21,13 @@ Rank, Tree structure
 
 MySQL:
 Data longer than max_allowed_packet can be sent by mysqli_stmt_send_long_data()
-? Geometry support
 
 SQLite:
 Copy tables
-ASC and DESC instead of text length in index
 Delimiter in export and SQL command
 Backward keys in Editor
 
 PostgreSQL:
-Array data types
 Display number of schemas in databases overview
 Users - SELECT * FROM pg_user
 ORDER BY COUNT(*)
@@ -45,3 +42,10 @@ PDO_MSSQL and PDO_SQLSRV driver with seek
 
 Oracle:
 clob comparable with string
+
+SimpleDB:
+Report invalid user or password
+Report API calls instead of queries
+Edit multi-value attributes
+Select: clone
+Update: delete + insert when changing itemName()
